@@ -1,86 +1,23 @@
 // ========================================
 // Chatapp3 - Application JavaScript
+// Intégration avec Cloud1 Backend
 // ========================================
 
 // État de l'application
 const state = {
-    currentUser: {
-        id: 'user-1',
-        name: 'Mon Profil',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user'
-    },
+    currentUser: null,
     currentChat: null,
     chats: [],
+    invitations: [],
+    onlineUsers: new Set(),
     settings: {
         darkMode: false,
         theme: 'lavender',
         sound: true
-    }
+    },
+    typingUsers: new Map(),
+    isLoading: false
 };
-
-// Données de démonstration
-const demoChats = [
-    {
-        id: 'chat-1',
-        name: 'Marie Dupont',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=marie',
-        online: true,
-        lastMessage: 'Super, on se voit demain alors !',
-        lastMessageTime: new Date(Date.now() - 5 * 60000),
-        unread: 2,
-        messages: [
-            { id: 'm1', text: 'Salut ! Comment vas-tu ?', sent: false, time: new Date(Date.now() - 3600000) },
-            { id: 'm2', text: 'Très bien merci ! Et toi ?', sent: true, time: new Date(Date.now() - 3500000) },
-            { id: 'm3', text: 'Ça va ! Tu es libre demain soir ?', sent: false, time: new Date(Date.now() - 3400000) },
-            { id: 'm4', text: 'Oui, pourquoi ?', sent: true, time: new Date(Date.now() - 3300000) },
-            { id: 'm5', text: 'On pourrait aller au restaurant !', sent: false, time: new Date(Date.now() - 600000) },
-            { id: 'm6', text: 'Super, on se voit demain alors !', sent: false, time: new Date(Date.now() - 5 * 60000) }
-        ]
-    },
-    {
-        id: 'chat-2',
-        name: 'Équipe Projet',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=team',
-        online: false,
-        lastMessage: 'La réunion est à 14h',
-        lastMessageTime: new Date(Date.now() - 30 * 60000),
-        unread: 0,
-        messages: [
-            { id: 'm1', text: 'Bonjour à tous !', sent: false, time: new Date(Date.now() - 7200000) },
-            { id: 'm2', text: 'On fait le point sur le projet ?', sent: true, time: new Date(Date.now() - 7100000) },
-            { id: 'm3', text: 'Bonne idée, on se retrouve en visio ?', sent: false, time: new Date(Date.now() - 7000000) },
-            { id: 'm4', text: 'La réunion est à 14h', sent: false, time: new Date(Date.now() - 30 * 60000) }
-        ]
-    },
-    {
-        id: 'chat-3',
-        name: 'Lucas Martin',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=lucas',
-        online: true,
-        lastMessage: 'As-tu regardé le match hier ?',
-        lastMessageTime: new Date(Date.now() - 2 * 3600000),
-        unread: 1,
-        messages: [
-            { id: 'm1', text: 'Hey !', sent: false, time: new Date(Date.now() - 3 * 3600000) },
-            { id: 'm2', text: 'Salut Lucas !', sent: true, time: new Date(Date.now() - 2.9 * 3600000) },
-            { id: 'm3', text: 'As-tu regardé le match hier ?', sent: false, time: new Date(Date.now() - 2 * 3600000) }
-        ]
-    },
-    {
-        id: 'chat-4',
-        name: 'Sophie Bernard',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sophie',
-        online: false,
-        lastMessage: 'Merci beaucoup pour ton aide !',
-        lastMessageTime: new Date(Date.now() - 24 * 3600000),
-        unread: 0,
-        messages: [
-            { id: 'm1', text: 'Tu peux m\'aider avec ce problème ?', sent: false, time: new Date(Date.now() - 25 * 3600000) },
-            { id: 'm2', text: 'Bien sûr, envoie-moi les détails', sent: true, time: new Date(Date.now() - 24.5 * 3600000) },
-            { id: 'm3', text: 'Merci beaucoup pour ton aide !', sent: false, time: new Date(Date.now() - 24 * 3600000) }
-        ]
-    }
-];
 
 // Liste d'emojis
 const emojis = [
@@ -138,17 +75,36 @@ const elements = {
     soundToggle: document.getElementById('soundToggle'),
 
     emojiPicker: document.getElementById('emojiPicker'),
-    sidebar: document.querySelector('.sidebar')
+    sidebar: document.querySelector('.sidebar'),
+
+    // Auth elements
+    authModal: document.getElementById('authModal'),
+    loginForm: document.getElementById('loginForm'),
+    registerForm: document.getElementById('registerForm'),
+    loginError: document.getElementById('loginError'),
+    registerError: document.getElementById('registerError'),
+
+    // Search user modal
+    searchUserModal: document.getElementById('searchUserModal'),
+    closeSearchUserBtn: document.getElementById('closeSearchUserBtn'),
+    searchUserInput: document.getElementById('searchUserInput'),
+    searchResults: document.getElementById('searchResults'),
+
+    // Loading & Toast
+    loadingOverlay: document.getElementById('loadingOverlay'),
+    toastContainer: document.getElementById('toastContainer')
 };
 
 // ========================================
 // Fonctions Utilitaires
 // ========================================
 function formatTime(date) {
+    if (typeof date === 'string') date = new Date(date);
     return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatRelativeTime(date) {
+    if (typeof date === 'string') date = new Date(date);
     const now = new Date();
     const diff = now - date;
     const minutes = Math.floor(diff / 60000);
@@ -165,7 +121,6 @@ function formatRelativeTime(date) {
 function playSound(type) {
     if (!state.settings.sound) return;
 
-    // Créer un son simple avec l'API Web Audio
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
@@ -192,9 +147,289 @@ function generateId() {
     return 'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 }
 
+function showLoading(show = true) {
+    state.isLoading = show;
+    elements.loadingOverlay.classList.toggle('hidden', !show);
+}
+
+function showToast(message, type = 'info') {
+    const icons = {
+        success: 'fa-check-circle',
+        error: 'fa-exclamation-circle',
+        info: 'fa-info-circle'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+        <i class="fas ${icons[type]}"></i>
+        <span>${message}</span>
+    `;
+
+    elements.toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.animation = 'toastIn 0.3s ease reverse';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+function getAvatarUrl(seed) {
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+}
+
+function isToday(date) {
+    if (typeof date === 'string') date = new Date(date);
+    const today = new Date();
+    return date.toDateString() === today.toDateString();
+}
+
+function isYesterday(date) {
+    if (typeof date === 'string') date = new Date(date);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return date.toDateString() === yesterday.toDateString();
+}
+
+// ========================================
+// Auth Functions
+// ========================================
+function showAuthModal() {
+    elements.authModal.classList.add('active');
+    document.querySelector('.app-container').style.display = 'none';
+}
+
+function hideAuthModal() {
+    elements.authModal.classList.remove('active');
+    document.querySelector('.app-container').style.display = 'flex';
+}
+
+function switchAuthTab(tab) {
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+
+    elements.loginForm.classList.toggle('hidden', tab !== 'login');
+    elements.registerForm.classList.toggle('hidden', tab !== 'register');
+
+    elements.loginError.textContent = '';
+    elements.registerError.textContent = '';
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+
+    const userId = document.getElementById('loginUserId').value.trim();
+    const password = document.getElementById('loginPassword').value;
+
+    if (!userId || !password) {
+        elements.loginError.textContent = 'Veuillez remplir tous les champs';
+        return;
+    }
+
+    showLoading(true);
+    elements.loginError.textContent = '';
+
+    const result = await AuthService.login(userId, password);
+
+    showLoading(false);
+
+    if (result.success) {
+        state.currentUser = result.user;
+        hideAuthModal();
+        await initApp();
+        showToast('Connexion réussie !', 'success');
+    } else {
+        elements.loginError.textContent = result.error || 'Erreur de connexion';
+    }
+}
+
+async function handleRegister(e) {
+    e.preventDefault();
+
+    const userId = document.getElementById('registerUserId').value.trim();
+    const username = document.getElementById('registerUsername').value.trim();
+    const password = document.getElementById('registerPassword').value;
+    const confirm = document.getElementById('registerConfirm').value;
+
+    if (!userId || !password) {
+        elements.registerError.textContent = 'Veuillez remplir les champs obligatoires';
+        return;
+    }
+
+    if (password !== confirm) {
+        elements.registerError.textContent = 'Les mots de passe ne correspondent pas';
+        return;
+    }
+
+    if (password.length < 6) {
+        elements.registerError.textContent = 'Le mot de passe doit contenir au moins 6 caractères';
+        return;
+    }
+
+    showLoading(true);
+    elements.registerError.textContent = '';
+
+    const result = await AuthService.register(userId, password, username || null);
+
+    showLoading(false);
+
+    if (result.success) {
+        state.currentUser = result.user;
+        hideAuthModal();
+        await initApp();
+        showToast('Inscription réussie !', 'success');
+    } else {
+        elements.registerError.textContent = result.error || 'Erreur d\'inscription';
+    }
+}
+
+function logout() {
+    AuthService.logout();
+    state.currentUser = null;
+    state.chats = [];
+    state.currentChat = null;
+    showAuthModal();
+    showToast('Déconnexion réussie', 'info');
+}
+
+// ========================================
+// Data Loading
+// ========================================
+async function loadChats() {
+    try {
+        const response = await ChatsAPI.getAll();
+        if (response.success && response.data) {
+            state.chats = response.data.chats.map(chat => ({
+                id: chat.id,
+                name: chat.name || getParticipantName(chat),
+                avatar: chat.metadata?.avatar || getAvatarUrl(chat.name || chat.id),
+                online: isUserOnline(getOtherParticipant(chat)),
+                lastMessage: chat.lastMessage || 'Nouvelle conversation',
+                lastMessageTime: chat.lastMessageTime ? new Date(chat.lastMessageTime) : new Date(),
+                unread: 0,
+                messages: [],
+                participants: chat.participants,
+                type: chat.type
+            }));
+            renderChatList();
+        }
+    } catch (error) {
+        console.error('Erreur chargement chats:', error);
+        showToast('Erreur de chargement des conversations', 'error');
+    }
+}
+
+async function loadMessages(chatId) {
+    try {
+        const response = await ChatsAPI.getMessages(chatId);
+        if (response.success && response.data) {
+            const chat = state.chats.find(c => c.id === chatId);
+            if (chat) {
+                chat.messages = response.data.messages.map(msg => ({
+                    id: msg.id,
+                    text: msg.content,
+                    sent: msg.senderId === state.currentUser.id,
+                    time: new Date(msg.createdAt),
+                    type: msg.type,
+                    senderId: msg.senderId
+                }));
+                if (state.currentChat?.id === chatId) {
+                    renderMessages();
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Erreur chargement messages:', error);
+    }
+}
+
+async function loadInvitations() {
+    try {
+        const response = await InvitationsAPI.getAll();
+        if (response.success && response.data) {
+            state.invitations = response.data.invitations || [];
+            renderInvitations();
+        }
+    } catch (error) {
+        console.error('Erreur chargement invitations:', error);
+    }
+}
+
+function getParticipantName(chat) {
+    if (chat.type === 'group') return chat.name || 'Groupe';
+    const otherParticipant = getOtherParticipant(chat);
+    if (chat.participantNames && chat.participantNames[otherParticipant]) {
+        return chat.participantNames[otherParticipant];
+    }
+    return otherParticipant || 'Utilisateur';
+}
+
+function getOtherParticipant(chat) {
+    if (!chat.participants || !state.currentUser) return null;
+    return chat.participants.find(p => p !== state.currentUser.id);
+}
+
+function isUserOnline(userId) {
+    return state.onlineUsers.has(userId);
+}
+
 // ========================================
 // Rendu de l'interface
 // ========================================
+function renderUserProfile() {
+    const user = state.currentUser;
+    if (!user) return;
+
+    const profileContainer = document.querySelector('.user-profile');
+    if (profileContainer) {
+        profileContainer.innerHTML = `
+            <div class="avatar avatar-neu">
+                <img src="${user.profilePicture || getAvatarUrl(user.username || user.userId)}" alt="Mon avatar">
+                <span class="status-indicator online"></span>
+            </div>
+            <div class="user-info">
+                <h3>${user.username || user.userId}</h3>
+                <span class="status-text">En ligne</span>
+            </div>
+        `;
+    }
+}
+
+function renderInvitations() {
+    if (state.invitations.length === 0) return;
+
+    let html = '<div class="invitations-section">';
+    state.invitations.forEach(inv => {
+        html += `
+            <div class="invitation-item" data-invitation-id="${inv.id}">
+                <div class="avatar avatar-neu">
+                    <img src="${getAvatarUrl(inv.fromUserId)}" alt="Avatar">
+                </div>
+                <div class="info">
+                    <span class="name">${inv.fromUsername || inv.fromUserId}</span>
+                    <span class="message">Veut discuter avec vous</span>
+                </div>
+                <div class="invitation-actions">
+                    <button class="btn-neu btn-icon btn-accept" onclick="acceptInvitation('${inv.id}')">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button class="btn-neu btn-icon btn-decline" onclick="declineInvitation('${inv.id}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    const invitationsContainer = document.querySelector('.invitations-section');
+    if (invitationsContainer) {
+        invitationsContainer.outerHTML = html;
+    } else {
+        elements.chatList.insertAdjacentHTML('beforebegin', html);
+    }
+}
+
 function renderChatList(filter = '') {
     const filteredChats = state.chats.filter(chat =>
         chat.name.toLowerCase().includes(filter.toLowerCase())
@@ -219,7 +454,6 @@ function renderChatList(filter = '') {
         </div>
     `).join('');
 
-    // Ajouter les événements de clic
     document.querySelectorAll('.chat-item').forEach(item => {
         item.addEventListener('click', () => {
             const chatId = item.dataset.chatId;
@@ -237,7 +471,6 @@ function renderMessages() {
     state.currentChat.messages.forEach(msg => {
         const msgDate = msg.time.toDateString();
 
-        // Ajouter un séparateur de date si nécessaire
         if (msgDate !== lastDate) {
             const dateLabel = isToday(msg.time) ? 'Aujourd\'hui' :
                              isYesterday(msg.time) ? 'Hier' :
@@ -250,7 +483,9 @@ function renderMessages() {
             lastDate = msgDate;
         }
 
-        const avatarSrc = msg.sent ? state.currentUser.avatar : state.currentChat.avatar;
+        const avatarSrc = msg.sent ?
+            (state.currentUser.profilePicture || getAvatarUrl(state.currentUser.username || state.currentUser.userId)) :
+            state.currentChat.avatar;
 
         html += `
             <div class="message ${msg.sent ? 'sent' : 'received'}">
@@ -267,17 +502,6 @@ function renderMessages() {
 
     elements.messages.innerHTML = html;
     scrollToBottom();
-}
-
-function isToday(date) {
-    const today = new Date();
-    return date.toDateString() === today.toDateString();
-}
-
-function isYesterday(date) {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    return date.toDateString() === yesterday.toDateString();
 }
 
 function scrollToBottom() {
@@ -302,7 +526,7 @@ function renderEmojiPicker() {
 function renderAvatarOptions() {
     elements.avatarOptions.innerHTML = avatarSeeds.map((seed, index) => `
         <div class="avatar-option ${index === 0 ? 'selected' : ''}" data-seed="${seed}">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}" alt="Avatar ${seed}">
+            <img src="${getAvatarUrl(seed)}" alt="Avatar ${seed}">
         </div>
     `).join('');
 
@@ -317,12 +541,23 @@ function renderAvatarOptions() {
 // ========================================
 // Actions
 // ========================================
-function selectChat(chatId) {
+async function selectChat(chatId) {
     const chat = state.chats.find(c => c.id === chatId);
     if (!chat) return;
 
+    // Quitter l'ancien chat
+    if (state.currentChat) {
+        SocketService.leaveChat(state.currentChat.id);
+    }
+
     state.currentChat = chat;
-    chat.unread = 0; // Marquer comme lu
+    chat.unread = 0;
+
+    // Rejoindre le nouveau chat
+    SocketService.joinChat(chatId);
+
+    // Charger les messages
+    await loadMessages(chatId);
 
     // Mettre à jour l'interface
     elements.emptyState.style.display = 'none';
@@ -330,25 +565,33 @@ function selectChat(chatId) {
     elements.messagesContainer.style.display = 'block';
     elements.inputArea.style.display = 'flex';
 
-    // Mettre à jour l'en-tête
     elements.contactAvatar.src = chat.avatar;
     elements.contactName.textContent = chat.name;
     elements.contactStatus.className = `status-indicator ${chat.online ? 'online' : ''}`;
 
-    // Afficher les messages
     renderMessages();
     renderChatList();
 
-    // Sur mobile, cacher la sidebar
     if (window.innerWidth <= 900) {
         elements.sidebar.classList.add('hidden');
     }
 }
 
-function sendMessage() {
+async function sendMessage() {
     const text = elements.messageInput.value.trim();
     if (!text || !state.currentChat) return;
 
+    // Envoyer via socket pour temps réel
+    SocketService.sendMessage(state.currentChat.id, text, 'text');
+
+    // Aussi envoyer via API pour persistence
+    try {
+        await ChatsAPI.sendMessage(state.currentChat.id, text);
+    } catch (error) {
+        console.error('Erreur envoi message:', error);
+    }
+
+    // Ajouter localement le message
     const message = {
         id: generateId(),
         text: text,
@@ -365,77 +608,83 @@ function sendMessage() {
     renderChatList();
     playSound('send');
 
-    // Simuler une réponse après un délai
-    simulateTyping();
+    // Arrêter l'indicateur de frappe
+    SocketService.stopTyping(state.currentChat.id);
 }
 
-function simulateTyping() {
-    elements.typingIndicator.classList.add('visible');
-
-    setTimeout(() => {
-        elements.typingIndicator.classList.remove('visible');
-        receiveMessage();
-    }, 1500 + Math.random() * 2000);
+async function acceptInvitation(invitationId) {
+    try {
+        const response = await InvitationsAPI.accept(invitationId);
+        if (response.success) {
+            state.invitations = state.invitations.filter(i => i.id !== invitationId);
+            renderInvitations();
+            await loadChats();
+            showToast('Invitation acceptée !', 'success');
+        }
+    } catch (error) {
+        showToast('Erreur lors de l\'acceptation', 'error');
+    }
 }
 
-function receiveMessage() {
-    if (!state.currentChat) return;
-
-    const responses = [
-        'D\'accord, je comprends !',
-        'C\'est une bonne idée !',
-        'Merci pour l\'info !',
-        'Super, on fait comme ça !',
-        'Je reviens vers toi rapidement.',
-        'Parfait !',
-        'Pas de problème !',
-        'Je vais y réfléchir.',
-        'Très intéressant !',
-        'On en reparle bientôt !'
-    ];
-
-    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-
-    const message = {
-        id: generateId(),
-        text: randomResponse,
-        sent: false,
-        time: new Date()
-    };
-
-    state.currentChat.messages.push(message);
-    state.currentChat.lastMessage = randomResponse;
-    state.currentChat.lastMessageTime = new Date();
-
-    renderMessages();
-    renderChatList();
-    playSound('receive');
+async function declineInvitation(invitationId) {
+    try {
+        const response = await InvitationsAPI.decline(invitationId);
+        if (response.success) {
+            state.invitations = state.invitations.filter(i => i.id !== invitationId);
+            renderInvitations();
+            showToast('Invitation déclinée', 'info');
+        }
+    } catch (error) {
+        showToast('Erreur lors du refus', 'error');
+    }
 }
 
-function createNewChat() {
-    const name = elements.newContactName.value.trim();
-    if (!name) return;
+async function searchUsers(query) {
+    if (!query || query.length < 2) {
+        elements.searchResults.innerHTML = '<p class="no-results">Tapez au moins 2 caractères</p>';
+        return;
+    }
 
-    const selectedAvatar = elements.avatarOptions.querySelector('.avatar-option.selected');
-    const seed = selectedAvatar ? selectedAvatar.dataset.seed : avatarSeeds[0];
+    try {
+        const response = await AuthAPI.findUserByUsername(query);
+        if (response.success && response.data) {
+            const user = response.data.user;
+            if (user.id === state.currentUser.id) {
+                elements.searchResults.innerHTML = '<p class="no-results">C\'est vous !</p>';
+                return;
+            }
+            elements.searchResults.innerHTML = `
+                <div class="search-result-item" data-user-id="${user.id}">
+                    <div class="avatar avatar-neu">
+                        <img src="${user.profilePicture || getAvatarUrl(user.username || user.userId)}" alt="Avatar">
+                    </div>
+                    <div class="user-info">
+                        <span class="username">${user.username || user.userId}</span>
+                        <span class="user-id">@${user.userId}</span>
+                    </div>
+                    <button class="btn-neu btn-add" onclick="sendInvitation('${user.id}')">
+                        <i class="fas fa-plus"></i> Inviter
+                    </button>
+                </div>
+            `;
+        } else {
+            elements.searchResults.innerHTML = '<p class="no-results">Aucun utilisateur trouvé</p>';
+        }
+    } catch (error) {
+        elements.searchResults.innerHTML = '<p class="no-results">Aucun utilisateur trouvé</p>';
+    }
+}
 
-    const newChat = {
-        id: generateId(),
-        name: name,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`,
-        online: Math.random() > 0.5,
-        lastMessage: 'Nouvelle conversation',
-        lastMessageTime: new Date(),
-        unread: 0,
-        messages: []
-    };
-
-    state.chats.unshift(newChat);
-    renderChatList();
-    closeModal(elements.newChatModal);
-    selectChat(newChat.id);
-
-    elements.newContactName.value = '';
+async function sendInvitation(userId) {
+    try {
+        const response = await InvitationsAPI.send(userId);
+        if (response.success) {
+            closeModal(elements.searchUserModal);
+            showToast('Invitation envoyée !', 'success');
+        }
+    } catch (error) {
+        showToast(error.message || 'Erreur d\'envoi', 'error');
+    }
 }
 
 // ========================================
@@ -477,8 +726,6 @@ function loadSettings() {
     const saved = localStorage.getItem('chatapp3-settings');
     if (saved) {
         state.settings = { ...state.settings, ...JSON.parse(saved) };
-
-        // Appliquer les paramètres
         setTheme(state.settings.theme);
         toggleDarkMode(state.settings.darkMode);
         elements.darkModeToggle.checked = state.settings.darkMode;
@@ -487,9 +734,96 @@ function loadSettings() {
 }
 
 // ========================================
+// Socket Events
+// ========================================
+function setupSocketListeners() {
+    // Nouveau message reçu
+    SocketService.on('message:new', (data) => {
+        const { message, chatId } = data;
+        const chat = state.chats.find(c => c.id === chatId);
+
+        if (chat && message.senderId !== state.currentUser.id) {
+            const newMessage = {
+                id: message.id,
+                text: message.content,
+                sent: false,
+                time: new Date(message.createdAt),
+                senderId: message.senderId
+            };
+
+            chat.messages.push(newMessage);
+            chat.lastMessage = message.content;
+            chat.lastMessageTime = new Date();
+
+            if (state.currentChat?.id === chatId) {
+                renderMessages();
+            } else {
+                chat.unread++;
+            }
+
+            renderChatList();
+            playSound('receive');
+        }
+    });
+
+    // Indicateur de frappe
+    SocketService.on('typing:user', (data) => {
+        const { chatId, userId, isTyping } = data;
+
+        if (state.currentChat?.id === chatId && userId !== state.currentUser.id) {
+            elements.typingIndicator.classList.toggle('visible', isTyping);
+        }
+    });
+
+    // Utilisateur en ligne
+    SocketService.on('user:online', (data) => {
+        state.onlineUsers.add(data.userId);
+        updateOnlineStatus();
+    });
+
+    // Utilisateur hors ligne
+    SocketService.on('user:offline', (data) => {
+        state.onlineUsers.delete(data.userId);
+        updateOnlineStatus();
+    });
+
+    // Statut de connexion
+    SocketService.on('status', (data) => {
+        if (data.connected) {
+            showToast('Connecté au serveur', 'success');
+        } else {
+            showToast('Déconnecté du serveur', 'error');
+        }
+    });
+}
+
+function updateOnlineStatus() {
+    state.chats.forEach(chat => {
+        const otherUserId = getOtherParticipant(chat);
+        chat.online = isUserOnline(otherUserId);
+    });
+
+    renderChatList();
+
+    if (state.currentChat) {
+        const online = state.currentChat.online;
+        elements.contactStatus.className = `status-indicator ${online ? 'online' : ''}`;
+    }
+}
+
+// ========================================
 // Événements
 // ========================================
 function initEventListeners() {
+    // Auth tabs
+    document.querySelectorAll('.auth-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchAuthTab(tab.dataset.tab));
+    });
+
+    // Auth forms
+    elements.loginForm.addEventListener('submit', handleLogin);
+    elements.registerForm.addEventListener('submit', handleRegister);
+
     // Recherche
     elements.searchInput.addEventListener('input', (e) => {
         renderChatList(e.target.value);
@@ -501,14 +835,36 @@ function initEventListeners() {
         if (e.key === 'Enter') sendMessage();
     });
 
-    // Modal nouveau chat
-    elements.newChatBtn.addEventListener('click', () => {
-        renderAvatarOptions();
-        openModal(elements.newChatModal);
+    // Indicateur de frappe
+    let typingTimeout;
+    elements.messageInput.addEventListener('input', () => {
+        if (state.currentChat) {
+            SocketService.startTyping(state.currentChat.id);
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                SocketService.stopTyping(state.currentChat.id);
+            }, 2000);
+        }
     });
-    elements.closeModalBtn.addEventListener('click', () => closeModal(elements.newChatModal));
-    elements.cancelNewChat.addEventListener('click', () => closeModal(elements.newChatModal));
-    elements.confirmNewChat.addEventListener('click', createNewChat);
+
+    // Nouveau chat - ouvre la recherche d'utilisateur
+    elements.newChatBtn.addEventListener('click', () => {
+        elements.searchUserInput.value = '';
+        elements.searchResults.innerHTML = '';
+        openModal(elements.searchUserModal);
+    });
+
+    elements.closeSearchUserBtn.addEventListener('click', () => closeModal(elements.searchUserModal));
+
+    // Recherche d'utilisateur
+    let searchTimeout;
+    elements.searchUserInput.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            searchUsers(e.target.value.trim());
+        }, 300);
+    });
 
     // Modal paramètres
     elements.settingsBtn.addEventListener('click', () => openModal(elements.settingsModal));
@@ -535,15 +891,14 @@ function initEventListeners() {
         elements.emojiPicker.classList.toggle('active');
     });
 
-    // Fermer emoji picker en cliquant ailleurs
     document.addEventListener('click', (e) => {
         if (!elements.emojiBtn.contains(e.target) && !elements.emojiPicker.contains(e.target)) {
             elements.emojiPicker.classList.remove('active');
         }
     });
 
-    // Fermer modals en cliquant en dehors
-    [elements.newChatModal, elements.settingsModal].forEach(modal => {
+    // Fermer modals
+    [elements.searchUserModal, elements.settingsModal].forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeModal(modal);
         });
@@ -552,6 +907,9 @@ function initEventListeners() {
     // Bouton retour mobile
     elements.backBtn.addEventListener('click', () => {
         elements.sidebar.classList.remove('hidden');
+        if (state.currentChat) {
+            SocketService.leaveChat(state.currentChat.id);
+        }
         state.currentChat = null;
         elements.emptyState.style.display = 'flex';
         elements.chatHeader.style.display = 'none';
@@ -567,7 +925,6 @@ function initEventListeners() {
         elements.voiceBtn.classList.toggle('recording', isRecording);
 
         if (!isRecording && state.currentChat) {
-            // Simuler l'envoi d'un message vocal
             const message = {
                 id: generateId(),
                 text: '🎤 Message vocal (0:03)',
@@ -580,24 +937,49 @@ function initEventListeners() {
             renderMessages();
             renderChatList();
             playSound('send');
+
+            // Envoyer via API
+            ChatsAPI.sendMessage(state.currentChat.id, '🎤 Message vocal', 'voice');
         }
     });
 
-    // Pièce jointe (simulation)
+    // Pièce jointe
     elements.attachBtn.addEventListener('click', () => {
         if (state.currentChat) {
-            const message = {
-                id: generateId(),
-                text: '📎 Fichier joint',
-                sent: true,
-                time: new Date()
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    try {
+                        showLoading(true);
+                        const response = await ApiService.uploadFile(file, 'image');
+                        showLoading(false);
+
+                        if (response.success) {
+                            const message = {
+                                id: generateId(),
+                                text: `📎 ${file.name}`,
+                                sent: true,
+                                time: new Date()
+                            };
+                            state.currentChat.messages.push(message);
+                            state.currentChat.lastMessage = '📎 Fichier joint';
+                            state.currentChat.lastMessageTime = new Date();
+                            renderMessages();
+                            renderChatList();
+                            playSound('send');
+
+                            await ChatsAPI.sendMessage(state.currentChat.id, response.data.url, 'file');
+                        }
+                    } catch (error) {
+                        showLoading(false);
+                        showToast('Erreur d\'upload', 'error');
+                    }
+                }
             };
-            state.currentChat.messages.push(message);
-            state.currentChat.lastMessage = '📎 Fichier joint';
-            state.currentChat.lastMessageTime = new Date();
-            renderMessages();
-            renderChatList();
-            playSound('send');
+            input.click();
         }
     });
 }
@@ -605,22 +987,46 @@ function initEventListeners() {
 // ========================================
 // Initialisation
 // ========================================
-function init() {
-    // Charger les données de démonstration
-    state.chats = demoChats;
-
-    // Charger les paramètres sauvegardés
+async function initApp() {
+    renderUserProfile();
     loadSettings();
-
-    // Initialiser l'interface
-    renderChatList();
     renderEmojiPicker();
+    setupSocketListeners();
 
-    // Ajouter les écouteurs d'événements
-    initEventListeners();
+    await Promise.all([
+        loadChats(),
+        loadInvitations()
+    ]);
 
     console.log('Chatapp3 initialisé avec succès !');
 }
+
+async function init() {
+    // Vérifier si l'utilisateur est déjà connecté
+    if (AuthService.isAuthenticated()) {
+        showLoading(true);
+        const result = await AuthService.checkAuth();
+        showLoading(false);
+
+        if (result.success) {
+            state.currentUser = result.user;
+            hideAuthModal();
+            await initApp();
+        } else {
+            showAuthModal();
+        }
+    } else {
+        showAuthModal();
+    }
+
+    initEventListeners();
+}
+
+// Exposer certaines fonctions globalement pour les onclick dans le HTML
+window.acceptInvitation = acceptInvitation;
+window.declineInvitation = declineInvitation;
+window.sendInvitation = sendInvitation;
+window.logout = logout;
 
 // Démarrer l'application
 document.addEventListener('DOMContentLoaded', init);
