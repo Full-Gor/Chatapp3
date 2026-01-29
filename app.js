@@ -90,6 +90,18 @@ const elements = {
     searchUserInput: document.getElementById('searchUserInput'),
     searchResults: document.getElementById('searchResults'),
 
+    // Profile modal
+    profileModal: document.getElementById('profileModal'),
+    closeProfileBtn: document.getElementById('closeProfileBtn'),
+    userProfileBtn: document.getElementById('userProfileBtn'),
+    profileAvatar: document.getElementById('profileAvatar'),
+    profileUsername: document.getElementById('profileUsername'),
+    profileUserId: document.getElementById('profileUserId'),
+    profileLogoutBtn: document.getElementById('profileLogoutBtn'),
+
+    // Logout button in header
+    logoutBtn: document.getElementById('logoutBtn'),
+
     // Loading & Toast
     loadingOverlay: document.getElementById('loadingOverlay'),
     toastContainer: document.getElementById('toastContainer')

@@ -15,7 +15,7 @@
         <!-- Sidebar - Liste des conversations -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="user-profile">
+                <div class="user-profile" id="userProfileBtn" title="Mon profil">
                     <div class="avatar avatar-neu">
                         <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user" alt="Mon avatar">
                         <span class="status-indicator online"></span>
@@ -25,9 +25,14 @@
                         <span class="status-text">En ligne</span>
                     </div>
                 </div>
-                <button class="btn-neu btn-icon" id="settingsBtn" title="Paramètres">
-                    <i class="fas fa-cog"></i>
-                </button>
+                <div class="header-buttons">
+                    <button class="btn-neu btn-icon" id="settingsBtn" title="Paramètres">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <button class="btn-neu btn-icon btn-logout-icon" id="logoutBtn" title="Déconnexion">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
             </div>
 
             <div class="search-container">
@@ -272,6 +277,47 @@
         </div>
     </div>
 
+    <!-- Modal Profil Utilisateur -->
+    <div class="modal" id="profileModal">
+        <div class="modal-content neu-convex profile-modal">
+            <div class="modal-header">
+                <h2>Mon Profil</h2>
+                <button class="btn-neu btn-icon btn-close" id="closeProfileBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="profile-section">
+                    <div class="profile-avatar-large">
+                        <div class="avatar avatar-neu avatar-xl">
+                            <img id="profileAvatar" src="https://api.dicebear.com/7.x/avataaars/svg?seed=user" alt="Mon avatar">
+                        </div>
+                    </div>
+                    <div class="profile-info">
+                        <div class="profile-field">
+                            <label>Nom d'utilisateur</label>
+                            <span id="profileUsername" class="profile-value">-</span>
+                        </div>
+                        <div class="profile-field">
+                            <label>Identifiant</label>
+                            <span id="profileUserId" class="profile-value">-</span>
+                        </div>
+                        <div class="profile-field">
+                            <label>Statut</label>
+                            <span class="profile-value status-online"><i class="fas fa-circle"></i> En ligne</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer profile-footer">
+                <button class="btn-neu btn-logout" id="profileLogoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Déconnexion</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Recherche Utilisateur -->
     <div class="modal" id="searchUserModal">
         <div class="modal-content neu-convex">
@@ -283,10 +329,10 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label for="searchUserInput">Nom d'utilisateur</label>
+                    <label for="searchUserInput">Nom ou identifiant</label>
                     <div class="input-wrapper neu-inset">
                         <i class="fas fa-search"></i>
-                        <input type="text" id="searchUserInput" placeholder="Rechercher par nom...">
+                        <input type="text" id="searchUserInput" placeholder="Rechercher par nom ou identifiant...">
                     </div>
                 </div>
                 <div class="search-results" id="searchResults">
