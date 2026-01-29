@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatapp3 - Neumorphic Chat</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar - Liste des conversations -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="user-profile">
+                    <div class="avatar avatar-neu">
+                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user" alt="Mon avatar">
+                        <span class="status-indicator online"></span>
+                    </div>
+                    <div class="user-info">
+                        <h3>Mon Profil</h3>
+                        <span class="status-text">En ligne</span>
+                    </div>
+                </div>
+                <button class="btn-neu btn-icon" id="settingsBtn" title="Paramètres">
+                    <i class="fas fa-cog"></i>
+                </button>
+            </div>
+
+            <div class="search-container">
+                <div class="search-box neu-inset">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Rechercher une conversation...">
+                </div>
+            </div>
+
+            <div class="chat-list" id="chatList">
+                <!-- Les conversations seront ajoutées ici par JS -->
+            </div>
+
+            <button class="btn-neu btn-new-chat" id="newChatBtn">
+                <i class="fas fa-plus"></i>
+                <span>Nouvelle conversation</span>
+            </button>
+        </aside>
+
+        <!-- Zone de chat principale -->
+        <main class="chat-area" id="chatArea">
+            <!-- État vide -->
+            <div class="empty-state" id="emptyState">
+                <div class="empty-icon neu-convex">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <h2>Bienvenue sur Chatapp3</h2>
+                <p>Sélectionnez une conversation ou créez-en une nouvelle pour commencer à discuter</p>
+            </div>
+
+            <!-- En-tête du chat (caché par défaut) -->
+            <header class="chat-header neu-flat" id="chatHeader" style="display: none;">
+                <button class="btn-neu btn-icon mobile-back" id="backBtn">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div class="chat-contact">
+                    <div class="avatar avatar-neu">
+                        <img id="contactAvatar" src="" alt="Contact">
+                        <span class="status-indicator" id="contactStatus"></span>
+                    </div>
+                    <div class="contact-info">
+                        <h3 id="contactName">Nom du contact</h3>
+                        <span class="typing-indicator" id="typingIndicator">écrit...</span>
+                    </div>
+                </div>
+                <div class="chat-actions">
+                    <button class="btn-neu btn-icon" title="Appel vocal">
+                        <i class="fas fa-phone"></i>
+                    </button>
+                    <button class="btn-neu btn-icon" title="Appel vidéo">
+                        <i class="fas fa-video"></i>
+                    </button>
+                    <button class="btn-neu btn-icon" title="Plus d'options">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Messages -->
+            <div class="messages-container" id="messagesContainer" style="display: none;">
+                <div class="messages" id="messages">
+                    <!-- Les messages seront ajoutés ici par JS -->
+                </div>
+            </div>
+
+            <!-- Zone de saisie -->
+            <div class="input-area" id="inputArea" style="display: none;">
+                <button class="btn-neu btn-icon" id="attachBtn" title="Joindre un fichier">
+                    <i class="fas fa-paperclip"></i>
+                </button>
+                <button class="btn-neu btn-icon" id="emojiBtn" title="Emojis">
+                    <i class="fas fa-smile"></i>
+                </button>
+                <div class="message-input-wrapper neu-inset">
+                    <input type="text" id="messageInput" placeholder="Tapez votre message...">
+                </div>
+                <button class="btn-neu btn-icon btn-voice" id="voiceBtn" title="Message vocal">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button class="btn-neu btn-send" id="sendBtn" title="Envoyer">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Nouveau Chat -->
+    <div class="modal" id="newChatModal">
+        <div class="modal-content neu-convex">
+            <div class="modal-header">
+                <h2>Nouvelle conversation</h2>
+                <button class="btn-neu btn-icon btn-close" id="closeModalBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newContactName">Nom du contact</label>
+                    <div class="input-wrapper neu-inset">
+                        <input type="text" id="newContactName" placeholder="Entrez le nom...">
+                    </div>
+                </div>
+                <div class="avatar-selection">
+                    <label>Choisir un avatar</label>
+                    <div class="avatar-options" id="avatarOptions">
+                        <!-- Avatars générés par JS -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-neu btn-cancel" id="cancelNewChat">Annuler</button>
+                <button class="btn-neu btn-confirm" id="confirmNewChat">Créer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Paramètres -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content neu-convex">
+            <div class="modal-header">
+                <h2>Paramètres</h2>
+                <button class="btn-neu btn-icon btn-close" id="closeSettingsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3>Apparence</h3>
+                    <div class="setting-item">
+                        <span>Mode sombre</span>
+                        <label class="switch neu-switch">
+                            <input type="checkbox" id="darkModeToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span>Thème de couleur</span>
+                        <div class="color-options">
+                            <button class="color-btn active" data-theme="lavender" style="background: linear-gradient(135deg, #e8e0f0, #d4c8e8)"></button>
+                            <button class="color-btn" data-theme="mint" style="background: linear-gradient(135deg, #d4f0e0, #b8e8c8)"></button>
+                            <button class="color-btn" data-theme="peach" style="background: linear-gradient(135deg, #f0e0d4, #e8d0c0)"></button>
+                            <button class="color-btn" data-theme="sky" style="background: linear-gradient(135deg, #d4e8f0, #b8d8e8)"></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Notifications</h3>
+                    <div class="setting-item">
+                        <span>Sons</span>
+                        <label class="switch neu-switch">
+                            <input type="checkbox" id="soundToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sélecteur d'emoji -->
+    <div class="emoji-picker" id="emojiPicker">
+        <div class="emoji-grid">
+            <!-- Emojis ajoutés par JS -->
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
