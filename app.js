@@ -751,37 +751,42 @@ async function searchUsers(query) {
     elements.searchResults.innerHTML = '<p class="no-results"><i class="fas fa-spinner fa-spin"></i> Recherche...</p>';
 
     try {
-        // Utilise la nouvelle méthode qui cherche par username ET userId
-        const response = await AuthAPI.searchUser(query);
-        if (response.success && response.data?.user) {
-            const user = response.data.user;
-            if (user.id === state.currentUser.id) {
-                elements.searchResults.innerHTML = '<p class="no-results">C\'est vous !</p>';
+        // Utilise la recherche partielle qui retourne plusieurs utilisateurs
+        const response = await AuthAPI.searchUsers(query);
+        if (response.success && response.data?.users && response.data.users.length > 0) {
+            // Filtrer l'utilisateur courant
+            const users = response.data.users.filter(u => u.id !== state.currentUser.id);
+
+            if (users.length === 0) {
+                elements.searchResults.innerHTML = '<p class="no-results">Aucun autre utilisateur trouvé</p>';
                 return;
             }
-            const safeUserId = escapeHtml(user.id);
-            const safeAvatar = escapeHtml(user.profilePicture || getAvatarUrl(user.username || user.userId));
-            const safeUsername = escapeHtml(user.username || user.userId);
-            const safeUserIdDisplay = escapeHtml(user.userId);
-            elements.searchResults.innerHTML = `
-                <div class="search-result-item" data-user-id="${safeUserId}">
-                    <div class="avatar avatar-neu">
-                        <img src="${safeAvatar}" alt="Avatar">
+
+            elements.searchResults.innerHTML = users.map(user => {
+                const safeUserId = escapeHtml(user.id);
+                const safeAvatar = escapeHtml(user.profilePicture || getAvatarUrl(user.username));
+                const safeUsername = escapeHtml(user.username);
+                return `
+                    <div class="search-result-item" data-user-id="${safeUserId}">
+                        <div class="avatar avatar-neu">
+                            <img src="${safeAvatar}" alt="Avatar">
+                        </div>
+                        <div class="user-info">
+                            <span class="username">${safeUsername}</span>
+                            <span class="user-id">@${safeUserId}</span>
+                        </div>
+                        <button class="btn-neu btn-add" onclick="sendInvitation('${safeUserId}')">
+                            <i class="fas fa-plus"></i> Inviter
+                        </button>
                     </div>
-                    <div class="user-info">
-                        <span class="username">${safeUsername}</span>
-                        <span class="user-id">@${safeUserIdDisplay}</span>
-                    </div>
-                    <button class="btn-neu btn-add" onclick="sendInvitation('${safeUserId}')">
-                        <i class="fas fa-plus"></i> Inviter
-                    </button>
-                </div>
-            `;
+                `;
+            }).join('');
         } else {
             elements.searchResults.innerHTML = '<p class="no-results">Aucun utilisateur trouvé</p>';
         }
     } catch (error) {
-        elements.searchResults.innerHTML = '<p class="no-results">Aucun utilisateur trouvé</p>';
+        console.error('Erreur recherche:', error);
+        elements.searchResults.innerHTML = '<p class="no-results">Erreur lors de la recherche</p>';
     }
 }
 

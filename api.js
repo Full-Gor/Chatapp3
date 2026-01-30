@@ -159,7 +159,12 @@ const AuthAPI = {
         return ApiService.get(`${CONFIG.ENDPOINTS.AUTH.FIND_USER_BY_ID}/${userId}`);
     },
 
-    // Recherche d'utilisateur par username ou userId (essaie les deux)
+    // Recherche d'utilisateurs par username (recherche partielle)
+    async searchUsers(query) {
+        return ApiService.get(`${CONFIG.ENDPOINTS.AUTH.SEARCH_USERS}/${encodeURIComponent(query)}`);
+    },
+
+    // Recherche d'utilisateur par username ou userId exact (essaie les deux)
     async searchUser(query) {
         // Essayer d'abord par username
         const byUsername = await ApiService.get(`${CONFIG.ENDPOINTS.AUTH.FIND_USER}/${query}`);

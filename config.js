@@ -24,6 +24,7 @@ const CONFIG = {
             LOGIN: '/auth/login',
             ME: '/auth/me',
             UPDATE_PROFILE: '/auth/profile',
+            SEARCH_USERS: '/auth/users/search',
             FIND_USER: '/auth/users/username',
             FIND_USER_BY_ID: '/auth/users/id'
         },
