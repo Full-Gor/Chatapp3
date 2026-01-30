@@ -159,6 +159,14 @@ function generateId() {
     return 'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 }
 
+// Échapper le HTML pour prévenir les attaques XSS
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function showLoading(show = true) {
     state.isLoading = show;
     elements.loadingOverlay.classList.toggle('hidden', !show);
@@ -175,7 +183,7 @@ function showToast(message, type = 'info') {
     toast.className = `toast ${type}`;
     toast.innerHTML = `
         <i class="fas ${icons[type]}"></i>
-        <span>${message}</span>
+        <span>${escapeHtml(message)}</span>
     `;
 
     elements.toastContainer.appendChild(toast);
@@ -241,17 +249,23 @@ async function handleLogin(e) {
     showLoading(true);
     elements.loginError.textContent = '';
 
-    const result = await AuthService.login(userId, password);
+    try {
+        const result = await AuthService.login(userId, password);
 
-    showLoading(false);
+        showLoading(false);
 
-    if (result.success) {
-        state.currentUser = result.user;
-        hideAuthModal();
-        await initApp();
-        showToast('Connexion réussie !', 'success');
-    } else {
-        elements.loginError.textContent = result.error || 'Erreur de connexion';
+        if (result.success) {
+            state.currentUser = result.user;
+            hideAuthModal();
+            await initApp();
+            showToast('Connexion réussie !', 'success');
+        } else {
+            elements.loginError.textContent = result.error || 'Erreur de connexion';
+        }
+    } catch (error) {
+        showLoading(false);
+        elements.loginError.textContent = 'Erreur de connexion au serveur';
+        console.error('Login error:', error);
     }
 }
 
@@ -281,17 +295,23 @@ async function handleRegister(e) {
     showLoading(true);
     elements.registerError.textContent = '';
 
-    const result = await AuthService.register(userId, password, username || null);
+    try {
+        const result = await AuthService.register(userId, password, username || null);
 
-    showLoading(false);
+        showLoading(false);
 
-    if (result.success) {
-        state.currentUser = result.user;
-        hideAuthModal();
-        await initApp();
-        showToast('Inscription réussie !', 'success');
-    } else {
-        elements.registerError.textContent = result.error || 'Erreur d\'inscription';
+        if (result.success) {
+            state.currentUser = result.user;
+            hideAuthModal();
+            await initApp();
+            showToast('Inscription réussie !', 'success');
+        } else {
+            elements.registerError.textContent = result.error || 'Erreur d\'inscription';
+        }
+    } catch (error) {
+        showLoading(false);
+        elements.registerError.textContent = 'Erreur de connexion au serveur';
+        console.error('Register error:', error);
     }
 }
 
@@ -372,6 +392,7 @@ async function loadMessages(chatId) {
         }
     } catch (error) {
         console.error('Erreur chargement messages:', error);
+        showToast('Erreur de chargement des messages', 'error');
     }
 }
 
@@ -384,6 +405,7 @@ async function loadInvitations() {
         }
     } catch (error) {
         console.error('Erreur chargement invitations:', error);
+        // Ne pas afficher de toast car cela peut être normal si pas d'invitations
     }
 }
 
@@ -420,11 +442,11 @@ function renderUserProfile() {
     if (profileContainer) {
         profileContainer.innerHTML = `
             <div class="avatar avatar-neu">
-                <img src="${avatarUrl}" alt="Mon avatar">
+                <img src="${escapeHtml(avatarUrl)}" alt="Mon avatar">
                 <span class="status-indicator online"></span>
             </div>
             <div class="user-info">
-                <h3>${displayName}</h3>
+                <h3>${escapeHtml(displayName)}</h3>
                 <span class="status-text">En ligne</span>
             </div>
         `;
@@ -452,20 +474,23 @@ function renderInvitations() {
 
     let html = '<div class="invitations-section">';
     state.invitations.forEach(inv => {
+        const safeId = escapeHtml(inv.id);
+        const safeName = escapeHtml(inv.fromUsername || inv.fromUserId);
+        const safeAvatarUrl = escapeHtml(getAvatarUrl(inv.fromUserId));
         html += `
-            <div class="invitation-item" data-invitation-id="${inv.id}">
+            <div class="invitation-item" data-invitation-id="${safeId}">
                 <div class="avatar avatar-neu">
-                    <img src="${getAvatarUrl(inv.fromUserId)}" alt="Avatar">
+                    <img src="${safeAvatarUrl}" alt="Avatar">
                 </div>
                 <div class="info">
-                    <span class="name">${inv.fromUsername || inv.fromUserId}</span>
+                    <span class="name">${safeName}</span>
                     <span class="message">Veut discuter avec vous</span>
                 </div>
                 <div class="invitation-actions">
-                    <button class="btn-neu btn-icon btn-accept" onclick="acceptInvitation('${inv.id}')">
+                    <button class="btn-neu btn-icon btn-accept" onclick="acceptInvitation('${safeId}')">
                         <i class="fas fa-check"></i>
                     </button>
-                    <button class="btn-neu btn-icon btn-decline" onclick="declineInvitation('${inv.id}')">
+                    <button class="btn-neu btn-icon btn-decline" onclick="declineInvitation('${safeId}')">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -487,24 +512,30 @@ function renderChatList(filter = '') {
         chat.name.toLowerCase().includes(filter.toLowerCase())
     );
 
-    elements.chatList.innerHTML = filteredChats.map(chat => `
-        <div class="chat-item ${state.currentChat?.id === chat.id ? 'active' : ''}" data-chat-id="${chat.id}">
+    elements.chatList.innerHTML = filteredChats.map(chat => {
+        const safeChatId = escapeHtml(chat.id);
+        const safeName = escapeHtml(chat.name);
+        const safeAvatar = escapeHtml(chat.avatar);
+        const safeLastMessage = escapeHtml(chat.lastMessage);
+        return `
+        <div class="chat-item ${state.currentChat?.id === chat.id ? 'active' : ''}" data-chat-id="${safeChatId}">
             <div class="avatar avatar-neu">
-                <img src="${chat.avatar}" alt="${chat.name}">
+                <img src="${safeAvatar}" alt="${safeName}">
                 <span class="status-indicator ${chat.online ? 'online' : ''}"></span>
             </div>
             <div class="chat-details">
                 <div class="chat-header-row">
-                    <span class="chat-name">${chat.name}</span>
+                    <span class="chat-name">${safeName}</span>
                     <span class="chat-time">${formatRelativeTime(chat.lastMessageTime)}</span>
                 </div>
                 <div class="chat-preview-row">
-                    <span class="chat-preview">${chat.lastMessage}</span>
+                    <span class="chat-preview">${safeLastMessage}</span>
                     ${chat.unread > 0 ? `<span class="unread-badge">${chat.unread}</span>` : ''}
                 </div>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 
     document.querySelectorAll('.chat-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -539,13 +570,16 @@ function renderMessages() {
             (state.currentUser.profilePicture || getAvatarUrl(state.currentUser.username || state.currentUser.userId)) :
             state.currentChat.avatar;
 
+        const safeAvatarSrc = escapeHtml(avatarSrc);
+        const safeText = escapeHtml(msg.text);
+
         html += `
             <div class="message ${msg.sent ? 'sent' : 'received'}">
                 <div class="avatar avatar-neu">
-                    <img src="${avatarSrc}" alt="Avatar">
+                    <img src="${safeAvatarSrc}" alt="Avatar">
                 </div>
                 <div class="message-content">
-                    <div class="message-bubble">${msg.text}</div>
+                    <div class="message-bubble">${safeText}</div>
                     <span class="message-time">${formatTime(msg.time)}</span>
                 </div>
             </div>
@@ -629,9 +663,19 @@ async function selectChat(chatId) {
     }
 }
 
+// Constantes de validation
+const MAX_MESSAGE_LENGTH = 2000;
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
 async function sendMessage() {
     const text = elements.messageInput.value.trim();
     if (!text || !state.currentChat) return;
+
+    // Validation de la longueur du message
+    if (text.length > MAX_MESSAGE_LENGTH) {
+        showToast(`Message trop long (max ${MAX_MESSAGE_LENGTH} caractères)`, 'error');
+        return;
+    }
 
     // Envoyer via socket pour temps réel
     SocketService.sendMessage(state.currentChat.id, text, 'text');
@@ -641,6 +685,7 @@ async function sendMessage() {
         await ChatsAPI.sendMessage(state.currentChat.id, text);
     } catch (error) {
         console.error('Erreur envoi message:', error);
+        showToast('Erreur lors de l\'envoi du message', 'error');
     }
 
     // Ajouter localement le message
@@ -672,8 +717,11 @@ async function acceptInvitation(invitationId) {
             renderInvitations();
             await loadChats();
             showToast('Invitation acceptée !', 'success');
+        } else {
+            showToast(response.error || 'Erreur lors de l\'acceptation', 'error');
         }
     } catch (error) {
+        console.error('Erreur acceptation invitation:', error);
         showToast('Erreur lors de l\'acceptation', 'error');
     }
 }
@@ -685,8 +733,11 @@ async function declineInvitation(invitationId) {
             state.invitations = state.invitations.filter(i => i.id !== invitationId);
             renderInvitations();
             showToast('Invitation déclinée', 'info');
+        } else {
+            showToast(response.error || 'Erreur lors du refus', 'error');
         }
     } catch (error) {
+        console.error('Erreur refus invitation:', error);
         showToast('Erreur lors du refus', 'error');
     }
 }
@@ -708,16 +759,20 @@ async function searchUsers(query) {
                 elements.searchResults.innerHTML = '<p class="no-results">C\'est vous !</p>';
                 return;
             }
+            const safeUserId = escapeHtml(user.id);
+            const safeAvatar = escapeHtml(user.profilePicture || getAvatarUrl(user.username || user.userId));
+            const safeUsername = escapeHtml(user.username || user.userId);
+            const safeUserIdDisplay = escapeHtml(user.userId);
             elements.searchResults.innerHTML = `
-                <div class="search-result-item" data-user-id="${user.id}">
+                <div class="search-result-item" data-user-id="${safeUserId}">
                     <div class="avatar avatar-neu">
-                        <img src="${user.profilePicture || getAvatarUrl(user.username || user.userId)}" alt="Avatar">
+                        <img src="${safeAvatar}" alt="Avatar">
                     </div>
                     <div class="user-info">
-                        <span class="username">${user.username || user.userId}</span>
-                        <span class="user-id">@${user.userId}</span>
+                        <span class="username">${safeUsername}</span>
+                        <span class="user-id">@${safeUserIdDisplay}</span>
                     </div>
-                    <button class="btn-neu btn-add" onclick="sendInvitation('${user.id}')">
+                    <button class="btn-neu btn-add" onclick="sendInvitation('${safeUserId}')">
                         <i class="fas fa-plus"></i> Inviter
                     </button>
                 </div>
@@ -736,8 +791,11 @@ async function sendInvitation(userId) {
         if (response.success) {
             closeModal(elements.searchUserModal);
             showToast('Invitation envoyée !', 'success');
+        } else {
+            showToast(response.error || 'Erreur d\'envoi', 'error');
         }
     } catch (error) {
+        console.error('Erreur envoi invitation:', error);
         showToast(error.message || 'Erreur d\'envoi', 'error');
     }
 }
@@ -1028,6 +1086,19 @@ function initEventListeners() {
             input.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (file) {
+                    // Validation de la taille du fichier
+                    if (file.size > MAX_FILE_SIZE) {
+                        showToast('Fichier trop volumineux (max 5 MB)', 'error');
+                        return;
+                    }
+
+                    // Validation du type de fichier
+                    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                    if (!allowedTypes.includes(file.type)) {
+                        showToast('Type de fichier non supporté', 'error');
+                        return;
+                    }
+
                     try {
                         showLoading(true);
                         const response = await ApiService.uploadFile(file, 'image');
