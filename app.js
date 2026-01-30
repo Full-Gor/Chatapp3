@@ -392,19 +392,39 @@ function renderUserProfile() {
     const user = state.currentUser;
     if (!user) return;
 
+    const avatarUrl = user.profilePicture || getAvatarUrl(user.username || user.userId);
+    const displayName = user.username || user.userId;
+
+    // Mettre à jour le profil dans la sidebar
     const profileContainer = document.querySelector('.user-profile');
     if (profileContainer) {
         profileContainer.innerHTML = `
             <div class="avatar avatar-neu">
-                <img src="${user.profilePicture || getAvatarUrl(user.username || user.userId)}" alt="Mon avatar">
+                <img src="${avatarUrl}" alt="Mon avatar">
                 <span class="status-indicator online"></span>
             </div>
             <div class="user-info">
-                <h3>${user.username || user.userId}</h3>
+                <h3>${displayName}</h3>
                 <span class="status-text">En ligne</span>
             </div>
         `;
     }
+
+    // Mettre à jour la modal profil
+    if (elements.profileAvatar) {
+        elements.profileAvatar.src = avatarUrl;
+    }
+    if (elements.profileUsername) {
+        elements.profileUsername.textContent = displayName;
+    }
+    if (elements.profileUserId) {
+        elements.profileUserId.textContent = '@' + user.userId;
+    }
+}
+
+function showProfileModal() {
+    renderUserProfile();
+    openModal(elements.profileModal);
 }
 
 function renderInvitations() {
@@ -657,9 +677,12 @@ async function searchUsers(query) {
         return;
     }
 
+    elements.searchResults.innerHTML = '<p class="no-results"><i class="fas fa-spinner fa-spin"></i> Recherche...</p>';
+
     try {
-        const response = await AuthAPI.findUserByUsername(query);
-        if (response.success && response.data) {
+        // Utilise la nouvelle méthode qui cherche par username ET userId
+        const response = await AuthAPI.searchUser(query);
+        if (response.success && response.data?.user) {
             const user = response.data.user;
             if (user.id === state.currentUser.id) {
                 elements.searchResults.innerHTML = '<p class="no-results">C\'est vous !</p>';
@@ -882,6 +905,25 @@ function initEventListeners() {
     elements.settingsBtn.addEventListener('click', () => openModal(elements.settingsModal));
     elements.closeSettingsBtn.addEventListener('click', () => closeModal(elements.settingsModal));
 
+    // Modal profil
+    if (elements.userProfileBtn) {
+        elements.userProfileBtn.addEventListener('click', showProfileModal);
+    }
+    if (elements.closeProfileBtn) {
+        elements.closeProfileBtn.addEventListener('click', () => closeModal(elements.profileModal));
+    }
+    if (elements.profileLogoutBtn) {
+        elements.profileLogoutBtn.addEventListener('click', () => {
+            closeModal(elements.profileModal);
+            logout();
+        });
+    }
+
+    // Bouton déconnexion dans le header
+    if (elements.logoutBtn) {
+        elements.logoutBtn.addEventListener('click', logout);
+    }
+
     // Thème et mode sombre
     elements.darkModeToggle.addEventListener('change', (e) => {
         toggleDarkMode(e.target.checked);
@@ -910,10 +952,12 @@ function initEventListeners() {
     });
 
     // Fermer modals
-    [elements.searchUserModal, elements.settingsModal].forEach(modal => {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModal(modal);
-        });
+    [elements.searchUserModal, elements.settingsModal, elements.profileModal].forEach(modal => {
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal(modal);
+            });
+        }
     });
 
     // Bouton retour mobile

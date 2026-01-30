@@ -147,6 +147,12 @@ const AuthAPI = {
 
     async findUserByUsername(username) {
         return ApiService.get(`${CONFIG.ENDPOINTS.AUTH.FIND_USER}/${username}`);
+    },
+
+    // Recherche d'utilisateur par username ou userId
+    // Le backend gère maintenant les deux types de recherche
+    async searchUser(query) {
+        return ApiService.get(`${CONFIG.ENDPOINTS.AUTH.FIND_USER}/${query}`);
     }
 };
 
