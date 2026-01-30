@@ -753,9 +753,11 @@ async function searchUsers(query) {
     try {
         // Utilise la recherche partielle qui retourne plusieurs utilisateurs
         const response = await AuthAPI.searchUsers(query);
-        if (response.success && response.data?.users && response.data.users.length > 0) {
+        // L'API retourne directement { success, users } sans wrapper "data"
+        const usersData = response.users || response.data?.users;
+        if (response.success && usersData && usersData.length > 0) {
             // Filtrer l'utilisateur courant
-            const users = response.data.users.filter(u => u.id !== state.currentUser.id);
+            const users = usersData.filter(u => u.id !== state.currentUser.id);
 
             if (users.length === 0) {
                 elements.searchResults.innerHTML = '<p class="no-results">Aucun autre utilisateur trouvé</p>';
