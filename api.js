@@ -149,10 +149,27 @@ const AuthAPI = {
         return ApiService.get(`${CONFIG.ENDPOINTS.AUTH.FIND_USER}/${username}`);
     },
 
-    // Recherche d'utilisateur par username ou userId
-    // Le backend gère maintenant les deux types de recherche
-    async searchUser(query) {
+    // Recherche d'utilisateur par username
+    async searchUserByUsername(query) {
         return ApiService.get(`${CONFIG.ENDPOINTS.AUTH.FIND_USER}/${query}`);
+    },
+
+    // Recherche d'utilisateur par ID
+    async searchUserById(userId) {
+        return ApiService.get(`${CONFIG.ENDPOINTS.AUTH.FIND_USER_BY_ID}/${userId}`);
+    },
+
+    // Recherche d'utilisateur par username ou userId (essaie les deux)
+    async searchUser(query) {
+        // Essayer d'abord par username
+        const byUsername = await ApiService.get(`${CONFIG.ENDPOINTS.AUTH.FIND_USER}/${query}`);
+        if (byUsername.success && byUsername.data?.user) {
+            return byUsername;
+        }
+
+        // Si pas trouvé, essayer par userId
+        const byId = await ApiService.get(`${CONFIG.ENDPOINTS.AUTH.FIND_USER_BY_ID}/${query}`);
+        return byId;
     }
 };
 

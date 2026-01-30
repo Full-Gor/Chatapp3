@@ -300,6 +300,26 @@ function logout() {
     state.currentUser = null;
     state.chats = [];
     state.currentChat = null;
+    state.invitations = [];
+    state.onlineUsers.clear();
+
+    // Réinitialiser l'interface
+    elements.chatList.innerHTML = '';
+    elements.messagesContainer.innerHTML = '';
+
+    // Réinitialiser les formulaires de connexion
+    document.getElementById('loginUserId').value = '';
+    document.getElementById('loginPassword').value = '';
+    document.getElementById('registerUserId').value = '';
+    document.getElementById('registerUsername').value = '';
+    document.getElementById('registerPassword').value = '';
+    document.getElementById('registerConfirm').value = '';
+    elements.loginError.textContent = '';
+    elements.registerError.textContent = '';
+
+    // Revenir sur l'onglet connexion
+    switchAuthTab('login');
+
     showAuthModal();
     showToast('Déconnexion réussie', 'info');
 }
@@ -1058,6 +1078,8 @@ async function initApp() {
 }
 
 async function init() {
+    initEventListeners();
+
     // Vérifier si l'utilisateur est déjà connecté
     if (AuthService.isAuthenticated()) {
         showLoading(true);
@@ -1074,8 +1096,6 @@ async function init() {
     } else {
         showAuthModal();
     }
-
-    initEventListeners();
 }
 
 // Exposer certaines fonctions globalement pour les onclick dans le HTML
